@@ -10,6 +10,17 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="CuPoisson.cpp" />
+    <CudaCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="CudaReduction\CuReduction.h" />
+    <ClInclude Include="CuPoisson.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="CudaReduction\CuReduction.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{82086B7D-70BF-43C1-BF92-5DE3B92121A8}</ProjectGuid>
     <RootNamespace>CuPoisson</RootNamespace>
@@ -76,9 +87,6 @@
       <TargetMachinePlatform>64</TargetMachinePlatform>
     </CudaCompile>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <CudaCompile Include="kernel.cu" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.5.targets" />
