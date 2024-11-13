@@ -14,12 +14,6 @@
 
 
 
-CuPoisson::CuPoisson()
-{
-	//N = 
-	//Nbytes = N * sizeof(double);
-	//cuRed = CudaReduction(f_dev, N, 1024);
-}
 
 
 

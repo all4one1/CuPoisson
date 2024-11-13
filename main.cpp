@@ -101,14 +101,18 @@ __global__ void PoissonKernel(double* F, double *F0)
 	}
 }
 
-
+__global__ void test()
+{
+	printf("Hello \n");
+}
 
 #include "CuPoisson.h"
 
 int main()
 {
 
+	CuPoisson test_poisson(1, 1, 1, test, {});
 
-
+	
 	return 0;
 }
