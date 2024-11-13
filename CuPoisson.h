@@ -70,109 +70,98 @@ struct CuPoisson
 {
 	unsigned int N = 0, k = 0;
 	double eps = 0, res = 0, res0 = 0;
-	double eps0 = 1e-5;
-	CudaReduction CR;
+	double eps_iter = 1e-5;
+	CudaReduction *CR = nullptr;
 	dim3 gridDim, blockDim;
 	size_t smem = 0, Nbytes = 0;
 	cudaStream_t stream = 0;
 	void* kernel = nullptr;
 	void** args = nullptr;
+	double* f_dev = nullptr, * f0_dev = nullptr;
 
-
-	CuPoisson(unsigned int grid_, unsigned int block_, unsigned int N_, void* kernel_, std::vector<void*> args_)
+	/**
+	 * grid (n of blocks)
+	 * block (n of threads per block)
+	 * N, size of arrays
+	 * kernel
+	 * arguments, first two fields are necessary: {&ptr1, &ptr2, ... }
+	 */
+	CuPoisson(dim3 grid_, dim3 block_, unsigned int N_, void* kernel_, std::vector<void*> args_)
 	{
+		if (args_.size() < 2)
+		{
+			std::cout << "not enough args..." << std::endl;
+			return;
+		}
+
 		gridDim = grid_;
 		blockDim = block_;
 		N = N_;
 		Nbytes = sizeof(double) * N;
+		kernel = kernel_;
 
-		set_kernel_and_args(kernel_, args_);
+		f_dev = (double*)args_[0];
+		f0_dev = (double*)args_[1];
+
+		set_args(args_);
+
+		CR = new CudaReduction(f_dev, N, 512);
 	}
-
 
 	void solve()
 	{
-		CudaReduction CR(N, 1024);
+
 		k = 0;
 		eps = 1.0;
 		res = 0.0;
 		res0 = 0.0;
 
-		for (k = 0; k < 200000; k++)
+		for (k = 0; k < 1000000; k++)
 		{
+			cudaLaunchKernel(kernel, gridDim, blockDim, args, smem, stream);
 
-			kernelSolveJacobi << < kernel.Grid1D, kernel.Block1D >> > (f, f0, b, N, M);
-			swap_one << < kernel.Grid1D, kernel.Block1D >> > (f0, f, N);
-
-			res = CR.reduce();
+			res = CR->reduce(true);
 			eps = abs(res - res0) / res0;
 			res0 = res;
+
+			swap_ptr(&f_dev, &f0_dev);
 
 			if (eps < eps_iter)
 			{
 				break;
 			}
 
-			if (k % 1000 == 0) cout << "device k = " << k << ", eps = " << eps << endl;
+			if (k % 1000 == 0) std::cout << "device k = " << k << ", eps = " << eps << std::endl;
 
 		}
-		cout << "device k = " << k << ", eps = " << eps << endl;
+		std::cout << "device k = " << k << ", eps = " << eps << std::endl;
 	}
 
-
-	void set_kernel_and_args(void* kernel_, std::vector<void*> args_)
+	void run_kernel()
 	{
-		kernel = kernel_;
-		size_t N = args_.size();
-		args = new void* [N];
+		cudaLaunchKernel(kernel, gridDim, blockDim, args, smem, stream);
+	}
 
-		for (int i = 0; i < N; i++)
+	private:
+	void set_args(std::vector<void*> args_)
+	{
+		size_t n = args_.size();
+		args = new void* [n];
+
+		for (int i = 0; i < n; i++)
 		{
 			args[i] = args_[i];
 		}
 	}
-
-	cudaError_t run_kernel()
-	{
-		return cudaLaunchKernel(kernel, gridDim, blockDim, args, smem, stream);
-	}
-
-	void solve(double* f_dev, double* f0_dev, double* ux_dev, double* uy_dev, double* uz_dev,
-		void (*kernel)(double*, double*, double*, double*, double*))
-	{
-		eps = 1.0;
-		res0 = 0.0;
-		res = 0.0;
-		k = 0;
-
-		//while (eps > eps0 * res0 || k < 2)
-		while (eps > eps0 * res0)
-		{
-
-			res = 0.0;
-			k++;
-
-			kernel << <gridDim, blockDim >> > (f_dev, f0_dev, ux_dev, uy_dev, uz_dev);
-
-
-			auto swap_ptr = [](double** ptr1, double** ptr2)
-			{	double* temp;	temp = (*ptr1);	(*ptr1) = (*ptr2);	(*ptr2) = temp; };
-
-			swap_ptr(&f_dev, &f0_dev);
-			//swap_one << < ceil(size_l / 1024.0), 1024 >> > (dev0, dev);
-
-
-			eps = abs(res - res0);
-			res0 = res;
-
-			if (k % 1000 == 0)
-			{
-				//cudaMemcpy(p_h, p_d, size_b, cudaMemcpyDeviceToHost);
-				//cout << k << "  " << setprecision(15) << p_h[1 + off + off2] - p_h[nx - 1 + off * (ny - 1) + off2 * (nz - 1)] << " " << eps << endl;
-			}
-
-		}
+	void swap_ptr (double** ptr1, double** ptr2)
+	{	
+		double* temp;	
+		temp = (*ptr1);	
+		(*ptr1) = (*ptr2);	
+		(*ptr2) = temp;
 	};
+
+
 
 };
 

@@ -111,8 +111,18 @@ __global__ void test()
 int main()
 {
 
-	CuPoisson test_poisson(1, 1, 1, test, {});
+	double* f, * f0;
 
-	
+	cudaMalloc((void**)&f, 8);
+	cudaMalloc((void**)&f0, 8);
+
+
+
+	CuPoisson pp(2, 1, 1, test, {&f, &f0});
+
+
+
+
+
 	return 0;
 }
