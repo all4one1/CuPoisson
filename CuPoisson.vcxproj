@@ -15,11 +15,10 @@
     <CudaCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CudaReduction\CuGraph.h" />
     <ClInclude Include="CudaReduction\CuReduction.h" />
+    <ClInclude Include="CudaReduction\nvidia_kernels.h" />
     <ClInclude Include="CuPoisson.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <CudaCompile Include="CudaReduction\CuReduction.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{82086B7D-70BF-43C1-BF92-5DE3B92121A8}</ProjectGuid>
