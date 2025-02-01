@@ -79,7 +79,7 @@ struct CuPoisson
 		{
 			cudaLaunchKernel(kernel, gridDim, blockDim, args, smem, stream);
 			res = CR->reduce(f_dev, true);
-			eps = abs(res - res0) / res0;
+			eps = abs(res - res0) / (res0 + 1e-5);
 			res0 = res;
 
 
@@ -91,6 +91,59 @@ struct CuPoisson
 		}
 		if (k > 100) std::cout << "device k = " << k << ", eps = " << eps << std::endl;
 		if (logs_out) k_write << k << " " << res << " " << eps << std::endl;
+	}
+
+	void solve_v2(unsigned int k_minimal_threshold, unsigned int k_frequency)
+	{
+		k = 0;
+		eps = 1.0;
+		res = 0.0;
+		res0 = 0.0;
+
+
+		for (k = 1; k < 1000000; k++)
+		{
+			if (k % 1000 == 0) std::cout << "device k = " << k << ", eps = " << eps << std::endl;
+
+			if (k < k_minimal_threshold)
+			{
+				cudaLaunchKernel(kernel, gridDim, blockDim, args, smem, stream);
+				std::swap(args[0], args[1]);
+				std::swap(f_dev, f0_dev);
+
+
+				res = CR->reduce(f0_dev, true);
+				eps = abs(res - res0) / (res0 + 1e-5);
+				res0 = res;
+
+				if (eps < eps_iter)		break;
+			}
+			else
+			{
+				cudaLaunchKernel(kernel, gridDim, blockDim, args, smem, stream);
+				std::swap(args[0], args[1]);
+				std::swap(f_dev, f0_dev);
+
+				if (k % k_frequency == 0)
+				{
+					res0 = CR->reduce(f0_dev);
+
+					cudaLaunchKernel(kernel, gridDim, blockDim, args, smem, stream);
+					std::swap(args[0], args[1]);
+					std::swap(f_dev, f0_dev);
+
+					k++;
+					res = CR->reduce(f0_dev);
+
+					eps = abs(res - res0) / (res0 + 1e-5);
+
+					if (eps < eps_iter)		break;
+				}
+			}
+		}
+		if (k > 100) std::cout << "device k = " << k << ", eps = " << eps << std::endl;
+		if (logs_out) k_write << k << " " << res << " " << eps << std::endl;
+
 	}
 };
 
