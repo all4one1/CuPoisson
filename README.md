@@ -29,11 +29,10 @@ int main()
 	
 	double* p, * p0, * rhs, *some_extra_field; //device pointers
 
-	CuPoisson poisson;
-
 	void* args[] = { &p, &p0, &rhs, &some_extra_field };
-	poisson.set_kernel(poisson_kernel, args, gridDim, blockDim);
-	poisson.set_main_field(p, p0, N);
+	CuPoisson poisson((N, poisson_kernel, args, { 0, 1 }, gridDim, blockDim);
+
+	poisson.solve();
 
 	return 0;
 }
