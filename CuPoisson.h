@@ -12,14 +12,19 @@
 #include "CudaReduction/CuReduction.h"
 
 
-
+__global__ void swap_(double* f_old, double* f_new, unsigned int n) 
+{
+	unsigned int l = blockIdx.x * blockDim.x + threadIdx.x;
+	if (l < n)	f_old[l] = f_new[l];
+}
 
 
 struct CuPoisson
 {
+	double eps_iter = 1e-5;
+private:
 	unsigned int N = 0, k = 0;
 	double eps = 0, res = 0, res0 = 0;
-	double eps_iter = 1e-4;
 	CudaReduction* CR = nullptr;
 	dim3 gridDim, blockDim;
 	size_t smem = 0, Nbytes = 0;
@@ -27,31 +32,34 @@ struct CuPoisson
 	void* kernel = nullptr;
 	void** args = nullptr;
 	double* f_dev = nullptr, * f0_dev = nullptr;
+	std::pair<int, int> main_index;
 
 	bool logs_out = false;
 	std::ofstream k_write;
 
-	/**
-	* main field (variable) to calculate and swap
-	* N - the size of
-	*/
-	void set_main_field(double* f_, double* f0_, unsigned int N_)
+private:
+	double* ptr_(int i)
 	{
-		f_dev = f_;
-		f0_dev = f0_;
-		N = N_;
-		Nbytes = sizeof(double) * N;
-		CR = new CudaReduction(f_dev, N, 512);
+		return *(double**)(args[i]);
+	}
+
+public:
+	CuPoisson() {}
+	CuPoisson(unsigned int N_, void* kernel_, void** args_, std::pair<int, int> main, dim3 grid_, dim3 block_, size_t smem_ = 0, cudaStream_t stream_ = 0)
+	{
+		set_kernel(N_, kernel_, args_, main, grid_, block_, smem_ = 0, stream_ = 0);
 	}
 
 	/**
+	* N - the size of
 	* kernel - __global__ void kernel function
 	* args - all the arguments of the kernel
+	* main - {i1, i2}, indices of main fields to swap and to compute reduction
 	* grid (n of blocks)
 	* block (n of threads per block)
 	* shared memory and stream are null by default
 	*/
-	void set_kernel(void* kernel_, void** args_, dim3 grid_, dim3 block_, size_t smem_ = 0, cudaStream_t stream_ = 0)
+	void set_kernel(unsigned int N_, void* kernel_, void** args_, std::pair<int, int> main, dim3 grid_, dim3 block_, size_t smem_ = 0, cudaStream_t stream_ = 0)
 	{
 		gridDim = grid_;
 		blockDim = block_;
@@ -59,13 +67,13 @@ struct CuPoisson
 		args = args_;
 		smem = smem_;
 		stream = stream_;
+
+		main_index = main;
+		N = N_;		
+		Nbytes = sizeof(double) * N;
+		CR = new CudaReduction(ptr_(main_index.first), N, 512);
 	}
 
-	void switch_writting(std::string name_)
-	{
-		logs_out = true;
-		k_write.open(name_ + ".dat");
-	}
 
 	void solve()
 	{
@@ -78,16 +86,14 @@ struct CuPoisson
 		for (k = 1; k < 1000000; k++)
 		{
 			cudaLaunchKernel(kernel, gridDim, blockDim, args, smem, stream);
-			res = CR->reduce(f_dev, true);
+			res = CR->reduce(ptr_(main_index.first), true);
 			eps = abs(res - res0) / (res0 + 1e-5);
 			res0 = res;
 
-
-			std::swap(args[0], args[1]);
-			std::swap(f_dev, f0_dev);
+			std::swap(args[main_index.first], args[main_index.second]);
 
 			if (eps < eps_iter)	break;
-			if (k % 1000 == 0) std::cout << "device k = " << k << ", eps = " << eps << std::endl;
+			if (k % 100 == 0) std::cout << "device k = " << k << ", eps = " << eps << std::endl;
 		}
 		if (k > 100) std::cout << "device k = " << k << ", eps = " << eps << std::endl;
 		if (logs_out) k_write << k << " " << res << " " << eps << std::endl;
@@ -108,11 +114,10 @@ struct CuPoisson
 			if (k < k_minimal_threshold)
 			{
 				cudaLaunchKernel(kernel, gridDim, blockDim, args, smem, stream);
-				std::swap(args[0], args[1]);
-				std::swap(f_dev, f0_dev);
+				std::swap(args[main_index.first], args[main_index.second]);
 
 
-				res = CR->reduce(f0_dev, true);
+				res = CR->reduce(ptr_(main_index.second), true);
 				eps = abs(res - res0) / (res0 + 1e-5);
 				res0 = res;
 
@@ -121,19 +126,19 @@ struct CuPoisson
 			else
 			{
 				cudaLaunchKernel(kernel, gridDim, blockDim, args, smem, stream);
-				std::swap(args[0], args[1]);
-				std::swap(f_dev, f0_dev);
+				std::swap(args[main_index.first], args[main_index.second]);
+
 
 				if (k % k_frequency == 0)
 				{
-					res0 = CR->reduce(f0_dev);
+					res0 = CR->reduce(ptr_(main_index.second));
 
 					cudaLaunchKernel(kernel, gridDim, blockDim, args, smem, stream);
-					std::swap(args[0], args[1]);
-					std::swap(f_dev, f0_dev);
+					std::swap(args[main_index.first], args[main_index.second]);
+
 
 					k++;
-					res = CR->reduce(f0_dev);
+					res = CR->reduce(ptr_(main_index.second));
 
 					eps = abs(res - res0) / (res0 + 1e-5);
 
@@ -144,6 +149,13 @@ struct CuPoisson
 		if (k > 100) std::cout << "device k = " << k << ", eps = " << eps << std::endl;
 		if (logs_out) k_write << k << " " << res << " " << eps << std::endl;
 
+	}
+
+
+	void switch_writting(std::string name_)
+	{
+		logs_out = true;
+		k_write.open(name_ + ".dat");
 	}
 };
 
