@@ -30,7 +30,7 @@ int main()
 	double* p, * p0, * rhs, *some_extra_field; //device pointers
 
 	void* args[] = { &p, &p0, &rhs, &some_extra_field };
-	CuPoisson poisson((N, poisson_kernel, args, { 0, 1 }, gridDim, blockDim);
+	CuPoisson poisson((N, poisson_kernel, args, gridDim, blockDim);
 
 	poisson.solve();
 
