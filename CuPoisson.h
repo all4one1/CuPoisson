@@ -93,7 +93,7 @@ public:
 			std::swap(args[main_index.first], args[main_index.second]);
 
 			if (eps < eps_iter)	break;
-			if (k % 100 == 0) std::cout << "device k = " << k << ", eps = " << eps << std::endl;
+			if (k % 1000 == 0) std::cout << "device k = " << k << ", eps = " << eps << std::endl;
 		}
 		if (k > 100) std::cout << "device k = " << k << ", eps = " << eps << std::endl;
 		if (logs_out) k_write << k << " " << res << " " << eps << std::endl;
