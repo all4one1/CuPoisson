@@ -45,9 +45,9 @@ private:
 
 public:
 	CuPoisson() {}
-	CuPoisson(unsigned int N_, void* kernel_, void** args_, std::pair<int, int> main, dim3 grid_, dim3 block_, size_t smem_ = 0, cudaStream_t stream_ = 0)
+	CuPoisson(unsigned int N_, void* kernel_, void** args_, dim3 grid_, dim3 block_, std::pair<int, int> main = {0, 1}, size_t smem_ = 0, cudaStream_t stream_ = 0)
 	{
-		set_kernel(N_, kernel_, args_, main, grid_, block_, smem_ = 0, stream_ = 0);
+		set_kernel(N_, kernel_, args_, main, grid_, block_, smem_, stream_);
 	}
 
 	/**
